@@ -17,9 +17,14 @@ Dieses Ansible-Projekt installiert den CheckMK-Agenten automatisch auf VMs aus e
 sudo apt-get update
 sudo apt-get install -y ansible python3 python3-pip sshpass
 
-# Python VMware-Bibliothek installieren
-pip3 install --user pyvmomi requests
+# Python VMware-Bibliothek installieren (Option 1 - EMPFOHLEN)
+sudo apt-get install -y python3-pyvmomi python3-requests
+
+# ODER Option 2 (falls python3-pyvmomi nicht verfügbar):
+pip3 install --user --break-system-packages pyvmomi requests
 ```
+
+**Hinweis für Debian/Ubuntu:** Ab Ubuntu 23.04 und Debian 12 wird PEP 668 verwendet, das `pip install` ohne Virtual Environment einschränkt. Daher wird empfohlen, die System-Pakete (`python3-pyvmomi`) zu verwenden oder `--break-system-packages` Flag zu nutzen.
 
 **Arch Linux:**
 ```bash
