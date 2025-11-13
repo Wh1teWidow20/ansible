@@ -1,0 +1,32 @@
+# Ansible
+*.retry
+ansible.log
+.ansible/
+
+# Python
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary files
+*.tmp
+*.swp
+*~
+.DS_Store
+
+# Sensitive data
+**/passwords.yml
+**/secrets.yml
+**/vault.yml
+inventory/production
+inventory/staging
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Logs
+logs/
+*.log

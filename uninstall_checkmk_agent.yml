@@ -1,0 +1,146 @@
+---
+- name: Uninstall CheckMK Agent from Linux systems
+  hosts: checkmk_agents
+  become: yes
+  gather_facts: yes
+
+  vars:
+    checkmk_port: 6556
+
+  tasks:
+    - name: Display uninstallation information
+      debug:
+        msg: "Uninstalling CheckMK Agent from {{ ansible_hostname }} ({{ ansible_distribution }} {{ ansible_distribution_version }})"
+
+    # Stop services before uninstalling
+    - name: Stop check-mk-agent.socket (systemd)
+      systemd:
+        name: check-mk-agent.socket
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Stop xinetd service
+      service:
+        name: xinetd
+        state: stopped
+      ignore_errors: yes
+
+    # RHEL/CentOS/Rocky/AlmaLinux Deinstallation
+    - name: Uninstall CheckMK Agent from RHEL-based systems
+      yum:
+        name: check-mk-agent
+        state: absent
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
+
+    - name: Remove xinetd from RHEL-based systems (optional)
+      yum:
+        name: xinetd
+        state: absent
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
+
+    # SLES Deinstallation
+    - name: Uninstall CheckMK Agent from SLES systems
+      zypper:
+        name: check-mk-agent
+        state: absent
+      when: ansible_os_family == "Suse"
+      ignore_errors: yes
+
+    - name: Remove xinetd from SLES systems (optional)
+      zypper:
+        name: xinetd
+        state: absent
+      when: ansible_os_family == "Suse"
+      ignore_errors: yes
+
+    # Debian/Ubuntu Deinstallation
+    - name: Uninstall CheckMK Agent from Debian-based systems
+      apt:
+        name: check-mk-agent
+        state: absent
+        purge: yes
+      when: ansible_os_family == "Debian"
+      ignore_errors: yes
+
+    - name: Remove xinetd from Debian-based systems (optional)
+      apt:
+        name: xinetd
+        state: absent
+        purge: yes
+      when: ansible_os_family == "Debian"
+      ignore_errors: yes
+
+    # Firewall-Regeln entfernen (RHEL/CentOS)
+    - name: Check if firewalld is running
+      command: systemctl is-active firewalld
+      register: firewalld_status
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Remove CheckMK Agent port from firewalld
+      firewalld:
+        port: "{{ checkmk_port }}/tcp"
+        permanent: yes
+        state: disabled
+        immediate: yes
+      when:
+        - ansible_os_family == "RedHat"
+        - firewalld_status.rc == 0
+      ignore_errors: yes
+
+    # UFW Firewall-Regeln entfernen (Ubuntu/Debian)
+    - name: Check if ufw is active
+      command: ufw status
+      register: ufw_status
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Remove CheckMK Agent port from UFW
+      ufw:
+        rule: allow
+        port: "{{ checkmk_port }}"
+        proto: tcp
+        delete: yes
+      when:
+        - ansible_os_family == "Debian"
+        - "'Status: active' in ufw_status.stdout"
+      ignore_errors: yes
+
+    # Cleanup configuration files
+    - name: Remove CheckMK configuration directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/check_mk
+        - /var/lib/check_mk_agent
+        - /usr/lib/check_mk_agent
+      ignore_errors: yes
+
+    - name: Remove CheckMK xinetd configuration
+      file:
+        path: /etc/xinetd.d/check_mk
+        state: absent
+      ignore_errors: yes
+
+    # Verify uninstallation
+    - name: Check if CheckMK Agent is still installed
+      command: which check_mk_agent
+      register: agent_check
+      failed_when: false
+      changed_when: false
+
+    - name: Display uninstallation result
+      debug:
+        msg: "CheckMK Agent has been successfully uninstalled"
+      when: agent_check.rc != 0
+
+    - name: Display warning if agent still exists
+      debug:
+        msg: "WARNING: CheckMK Agent binary still exists at {{ agent_check.stdout }}"
+      when: agent_check.rc == 0

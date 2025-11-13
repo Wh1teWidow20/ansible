@@ -1,0 +1,178 @@
+---
+- name: Install CheckMK Agent on multiple Linux distributions
+  hosts: checkmk_agents
+  become: yes
+  gather_facts: yes
+
+  vars:
+    checkmk_rpm_package: "check-mk-agent-2.3.0p9-6cc5d32d5bd65f21.noarch.rpm"
+    checkmk_deb_package: "check-mk-agent_2.3.0p9-6cc5d32d5bd65f21_all.deb"
+    checkmk_server: "192.168.1.100"  # IP des CheckMK-Servers (anpassen!)
+    checkmk_port: 6556
+
+  tasks:
+    - name: Display target system information
+      debug:
+        msg: "Installing CheckMK Agent on {{ ansible_hostname }} ({{ ansible_distribution }} {{ ansible_distribution_version }})"
+
+    # RHEL/CentOS/Rocky/AlmaLinux Installation
+    - name: Copy RPM package to RHEL-based systems
+      copy:
+        src: "files/{{ checkmk_rpm_package }}"
+        dest: "/tmp/{{ checkmk_rpm_package }}"
+        mode: '0644'
+      when: ansible_os_family == "RedHat"
+
+    - name: Install CheckMK Agent on RHEL-based systems
+      yum:
+        name: "/tmp/{{ checkmk_rpm_package }}"
+        state: present
+        disable_gpg_check: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Install xinetd on RHEL-based systems
+      yum:
+        name: xinetd
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    # SLES Installation
+    - name: Copy RPM package to SLES systems
+      copy:
+        src: "files/{{ checkmk_rpm_package }}"
+        dest: "/tmp/{{ checkmk_rpm_package }}"
+        mode: '0644'
+      when: ansible_os_family == "Suse"
+
+    - name: Install CheckMK Agent on SLES systems
+      zypper:
+        name: "/tmp/{{ checkmk_rpm_package }}"
+        state: present
+        disable_gpg_check: yes
+      when: ansible_os_family == "Suse"
+
+    - name: Install xinetd on SLES systems
+      zypper:
+        name: xinetd
+        state: present
+      when: ansible_os_family == "Suse"
+
+    # Debian/Ubuntu Installation
+    - name: Copy DEB package to Debian-based systems
+      copy:
+        src: "files/{{ checkmk_deb_package }}"
+        dest: "/tmp/{{ checkmk_deb_package }}"
+        mode: '0644'
+      when: ansible_os_family == "Debian"
+
+    - name: Install CheckMK Agent on Debian-based systems
+      apt:
+        deb: "/tmp/{{ checkmk_deb_package }}"
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install xinetd on Debian-based systems
+      apt:
+        name: xinetd
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    # Konfiguration für alle Systeme
+    - name: Check if systemd is available
+      command: systemctl --version
+      register: systemd_check
+      failed_when: false
+      changed_when: false
+
+    - name: Enable and start check-mk-agent.socket (systemd)
+      systemd:
+        name: check-mk-agent.socket
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      when: systemd_check.rc == 0
+      ignore_errors: yes
+
+    - name: Enable and start xinetd service
+      service:
+        name: xinetd
+        enabled: yes
+        state: started
+      when: systemd_check.rc != 0
+
+    # Firewall-Konfiguration für RHEL/CentOS (firewalld)
+    - name: Check if firewalld is running
+      command: systemctl is-active firewalld
+      register: firewalld_status
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Allow CheckMK Agent port in firewalld
+      firewalld:
+        port: "{{ checkmk_port }}/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      when:
+        - ansible_os_family == "RedHat"
+        - firewalld_status.rc == 0
+      ignore_errors: yes
+
+    # UFW Firewall für Ubuntu/Debian
+    - name: Check if ufw is active
+      command: ufw status
+      register: ufw_status
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Allow CheckMK Agent port in UFW
+      ufw:
+        rule: allow
+        port: "{{ checkmk_port }}"
+        proto: tcp
+      when:
+        - ansible_os_family == "Debian"
+        - "'Status: active' in ufw_status.stdout"
+      ignore_errors: yes
+
+    # Verify installation
+    - name: Check if CheckMK Agent is responding
+      wait_for:
+        port: "{{ checkmk_port }}"
+        timeout: 10
+      ignore_errors: yes
+
+    - name: Test CheckMK Agent output
+      command: check_mk_agent
+      register: agent_output
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Display CheckMK Agent version
+      debug:
+        msg: "CheckMK Agent is installed and responding"
+      when: agent_output.rc == 0
+
+    # Cleanup
+    - name: Remove temporary package files
+      file:
+        path: "/tmp/{{ item }}"
+        state: absent
+      loop:
+        - "{{ checkmk_rpm_package }}"
+        - "{{ checkmk_deb_package }}"
+      ignore_errors: yes
+
+  handlers:
+    - name: restart xinetd
+      service:
+        name: xinetd
+        state: restarted
+
+    - name: restart check-mk-agent
+      systemd:
+        name: check-mk-agent.socket
+        state: restarted
