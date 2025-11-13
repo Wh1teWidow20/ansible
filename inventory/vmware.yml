@@ -1,0 +1,58 @@
+---
+# VMware vCenter dynamisches Inventory Plugin
+plugin: community.vmware.vmware_vm_inventory
+
+# vCenter Server Verbindungsdetails
+hostname: LTERZTA001.dptrzm.de
+username: "{{ lookup('env', 'VCENTER_USERNAME') }}"
+password: "{{ lookup('env', 'VCENTER_PASSWORD') }}"
+port: 443
+validate_certs: no
+
+# Nur VMs mit Namen die mit "LTERZTA" beginnen
+filters:
+  - guest.guestFamily == "linuxGuest"
+  - name is match("LTERZTA.*")
+
+# Properties die abgerufen werden sollen
+properties:
+  - name
+  - guest.ipAddress
+  - guest.guestFamily
+  - guest.guestFullName
+  - config.guestId
+  - runtime.powerState
+
+# Nur eingeschaltete VMs
+with_tags: no
+with_path: no
+
+# Nur VMs die eingeschaltet sind
+hostnames:
+  - 'guest.ipAddress'
+  - 'name'
+
+# Gruppierung nach Betriebssystem
+keyed_groups:
+  # RHEL-basierte Systeme (RHEL, CentOS, Rocky, AlmaLinux)
+  - key: guest.guestId
+    separator: ''
+    prefix: ''
+  - key: guest.guestId | regex_replace('^(rhel|centos|rocky|alma).*', 'rhel_based')
+    separator: ''
+  # SLES-basierte Systeme
+  - key: guest.guestId | regex_replace('^(sles|suse).*', 'suse_based')
+    separator: ''
+  # Debian-basierte Systeme (Ubuntu, Debian)
+  - key: guest.guestId | regex_replace('^(ubuntu|debian).*', 'debian_based')
+    separator: ''
+
+# Compose Variablen
+compose:
+  ansible_host: guest.ipAddress
+  vm_name: name
+  vm_guest_os: guest.guestFullName
+  vm_power_state: runtime.powerState
+
+# Nur eingeschaltete VMs
+strict: False

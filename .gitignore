@@ -2,6 +2,7 @@
 *.retry
 ansible.log
 .ansible/
+.ansible_cache/
 
 # Python
 *.pyc
@@ -21,6 +22,9 @@ __pycache__/
 **/vault.yml
 inventory/production
 inventory/staging
+vcenter_credentials.sh
+.vault_pass.txt
+vault_pass.txt
 
 # IDE
 .vscode/
