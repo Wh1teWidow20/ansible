@@ -2,13 +2,15 @@
 
 Dieses Ansible-Projekt installiert den CheckMK-Agenten automatisch auf VMs aus einem VMware vCenter Server. Es werden nur VMs berücksichtigt, deren Name mit "LTERZTA" beginnt.
 
+**🔐 WICHTIG:** Dieses Setup verwendet **Passwort-Authentifizierung mit AD-Benutzern** (keine SSH-Keys). Siehe [PASSWORD_AUTH.md](PASSWORD_AUTH.md) für Details.
+
 ## Voraussetzungen
 
 ### Auf dem Control Node (Arch Linux)
 
 ```bash
-# Ansible installieren
-sudo pacman -S ansible python python-pip
+# Ansible und sshpass installieren
+sudo pacman -S ansible python python-pip sshpass
 
 # Python VMware-Bibliothek installieren
 pip install --user pyvmomi requests
@@ -29,17 +31,25 @@ cp ~/Downloads/check-mk-agent_2.3.0p9-6cc5d32d5bd65f21_all.deb files/
 ### 1. Automatisches Setup (empfohlen)
 
 ```bash
-# 1. Credentials konfigurieren
+# 1. vCenter Credentials konfigurieren
 cp vcenter_credentials.sh.example vcenter_credentials.sh
-nano vcenter_credentials.sh  # Username und Password eintragen
+nano vcenter_credentials.sh  # vCenter Username und Password eintragen
 
-# 2. Automatisches Setup ausführen
+# 2. AD-Credentials konfigurieren (für SSH-Zugriff auf VMs)
+cp ad_credentials.sh.example ad_credentials.sh
+chmod 600 ad_credentials.sh
+nano ad_credentials.sh  # Ihren AD-Benutzernamen eintragen
+
+# 3. Automatisches Setup ausführen
 ./setup.sh
 
-# 3. Installation starten
+# 4. Installation starten
 source vcenter_credentials.sh
-ansible-playbook install_checkmk_agent.yml
+source ad_credentials.sh
+ansible-playbook install_checkmk_agent.yml --ask-pass --ask-become-pass
 ```
+
+**Hinweis:** Sie werden nach Ihrem SSH- und sudo-Passwort gefragt.
 
 ### 2. Manuelles Setup
 
@@ -54,11 +64,14 @@ pip install --user pyvmomi requests
 export VCENTER_USERNAME="ihr-username@vsphere.local"
 export VCENTER_PASSWORD="ihr-passwort"
 
-# 4. Inventory testen
+# 4. AD-Benutzernamen setzen
+export AD_USERNAME="ihr-ad-username"
+
+# 5. Inventory testen
 ansible-inventory -i inventory/vmware.yml --graph
 
-# 5. Installation durchführen
-ansible-playbook install_checkmk_agent.yml
+# 6. Installation durchführen (mit Passwort-Abfrage)
+ansible-playbook install_checkmk_agent.yml --ask-pass --ask-become-pass
 ```
 
 ## Verzeichnisstruktur
@@ -69,14 +82,16 @@ ansible/
 ├── requirements.yml                      # Ansible Collections (VMware)
 ├── setup.sh                              # Automatisches Setup-Script
 ├── vcenter_credentials.sh.example        # Vorlage für vCenter Credentials
+├── ad_credentials.sh.example             # Vorlage für AD-User Credentials (SSH)
 ├── install_checkmk_agent.yml             # Hauptplaybook für Installation
 ├── uninstall_checkmk_agent.yml           # Playbook für Deinstallation
 ├── README.md                             # Diese Datei
+├── PASSWORD_AUTH.md                      # Anleitung für Passwort-Authentifizierung
 ├── inventory/
 │   ├── hosts                             # Statisches Inventory (optional)
 │   └── vmware.yml                        # Dynamisches VMware Inventory Plugin
 ├── group_vars/
-│   └── all.yml                           # Globale Variablen
+│   └── all.yml                           # Globale Variablen (inkl. AD-User)
 └── files/
     ├── check-mk-agent-*.rpm              # RPM-Paket
     └── check-mk-agent_*.deb              # DEB-Paket
@@ -114,9 +129,10 @@ export VCENTER_PASSWORD="ihr-passwort"
 
 ### Credentials laden
 
-Vor jedem Ansible-Befehl die Credentials laden:
+Vor jedem Ansible-Befehl BEIDE Credentials laden:
 ```bash
-source vcenter_credentials.sh
+source vcenter_credentials.sh  # Für vCenter-Zugriff
+source ad_credentials.sh        # Für SSH-Zugriff auf VMs
 ```
 
 ## Verwendung
@@ -126,6 +142,7 @@ source vcenter_credentials.sh
 ```bash
 # Credentials laden
 source vcenter_credentials.sh
+source ad_credentials.sh
 
 # Alle VMs aus vCenter anzeigen (mit LTERZTA prefix)
 ansible-inventory -i inventory/vmware.yml --graph
@@ -141,14 +158,18 @@ ansible-inventory --graph debian_based
 ### Verbindung testen
 
 ```bash
-# Alle gefundenen VMs testen
-ansible checkmk_agents -m ping
+# Credentials laden
+source vcenter_credentials.sh
+source ad_credentials.sh
+
+# Alle gefundenen VMs testen (Passwort wird abgefragt)
+ansible checkmk_agents -m ping --ask-pass --ask-become-pass
 
 # Nur RHEL-basierte Systeme testen
-ansible rhel_based -m ping
+ansible rhel_based -m ping --ask-pass --ask-become-pass
 
 # Nur Debian-basierte Systeme testen
-ansible debian_based -m ping
+ansible debian_based -m ping --ask-pass --ask-become-pass
 ```
 
 ### CheckMK-Agent installieren
@@ -156,44 +177,55 @@ ansible debian_based -m ping
 ```bash
 # Credentials laden
 source vcenter_credentials.sh
+source ad_credentials.sh
 
-# Auf allen VMs installieren
-ansible-playbook install_checkmk_agent.yml
+# Auf allen VMs installieren (Passwort wird abgefragt)
+ansible-playbook install_checkmk_agent.yml --ask-pass --ask-become-pass
 
 # Nur auf RHEL-basierten Systemen
-ansible-playbook install_checkmk_agent.yml --limit rhel_based
+ansible-playbook install_checkmk_agent.yml --limit rhel_based --ask-pass --ask-become-pass
 
 # Nur auf Debian-basierten Systemen
-ansible-playbook install_checkmk_agent.yml --limit debian_based
+ansible-playbook install_checkmk_agent.yml --limit debian_based --ask-pass --ask-become-pass
 
 # Nur auf einer spezifischen VM
-ansible-playbook install_checkmk_agent.yml --limit LTERZTA-SERVER-01
+ansible-playbook install_checkmk_agent.yml --limit LTERZTA-SERVER-01 --ask-pass --ask-become-pass
 
 # Dry-Run (Test-Modus ohne Änderungen)
-ansible-playbook install_checkmk_agent.yml --check
+ansible-playbook install_checkmk_agent.yml --check --ask-pass --ask-become-pass
 
 # Mit erhöhter Verbosity (für Debugging)
-ansible-playbook install_checkmk_agent.yml -vvv
+ansible-playbook install_checkmk_agent.yml -vvv --ask-pass --ask-become-pass
 ```
+
+**💡 Tipp:** Siehe [PASSWORD_AUTH.md](PASSWORD_AUTH.md) für Möglichkeiten, Passwörter zu speichern und nicht jedes Mal eingeben zu müssen.
 
 ### Installation überprüfen
 
 ```bash
+# Credentials laden
+source vcenter_credentials.sh
+source ad_credentials.sh
+
 # Agent-Status auf allen Hosts prüfen
-ansible checkmk_agents -m shell -a "systemctl status check-mk-agent.socket || service xinetd status"
+ansible checkmk_agents -m shell -a "systemctl status check-mk-agent.socket || service xinetd status" --ask-pass --ask-become-pass
 
 # Agent-Output direkt testen
-ansible checkmk_agents -m shell -a "check_mk_agent | head -20"
+ansible checkmk_agents -m shell -a "check_mk_agent | head -20" --ask-pass --ask-become-pass
 
 # Port-Status prüfen
-ansible checkmk_agents -m shell -a "ss -tlnp | grep 6556"
+ansible checkmk_agents -m shell -a "ss -tlnp | grep 6556" --ask-pass --ask-become-pass
 ```
 
 ### Deinstallation
 
 ```bash
+# Credentials laden
 source vcenter_credentials.sh
-ansible-playbook uninstall_checkmk_agent.yml
+source ad_credentials.sh
+
+# Deinstallation durchführen
+ansible-playbook uninstall_checkmk_agent.yml --ask-pass --ask-become-pass
 ```
 
 ## Konfiguration anpassen
@@ -286,13 +318,17 @@ validate_certs: no  # Deaktiviert SSL-Zertifikat-Prüfung
 ### SSH-Verbindungsprobleme
 
 ```bash
-# SSH-Zugriff manuell testen
-ssh root@<vm-ip>
+# SSH-Zugriff manuell testen mit AD-User
+ssh $AD_USERNAME@<vm-ip>
 
-# SSH-Keys für alle VMs verteilen
-# (Ersetzen Sie <vm-ip> mit tatsächlichen IPs)
-ssh-copy-id root@<vm-ip>
+# Verschiedene Username-Formate testen
+ssh maxmustermann@<vm-ip>
+ssh maxmustermann@dptrzm.de@<vm-ip>
+
+# Passwort-Authentifizierung ist aktiviert (keine SSH-Keys erforderlich)
 ```
+
+**Hinweis:** Dieses Setup verwendet Passwort-Authentifizierung, daher sind keine SSH-Keys erforderlich. Siehe [PASSWORD_AUTH.md](PASSWORD_AUTH.md) für Details.
 
 ### Agent antwortet nicht
 
@@ -328,20 +364,24 @@ ansible debian_based -m shell -a "ufw allow 6556/tcp"
 ### Ad-hoc Befehle auf allen VMs
 
 ```bash
+# Credentials laden
+source vcenter_credentials.sh
+source ad_credentials.sh
+
 # Uptime aller VMs
-ansible checkmk_agents -m shell -a "uptime"
+ansible checkmk_agents -m shell -a "uptime" --ask-pass --ask-become-pass
 
 # Disk-Space prüfen
-ansible checkmk_agents -m shell -a "df -h"
+ansible checkmk_agents -m shell -a "df -h" --ask-pass --ask-become-pass
 
 # Memory-Usage prüfen
-ansible checkmk_agents -m shell -a "free -h"
+ansible checkmk_agents -m shell -a "free -h" --ask-pass --ask-become-pass
 
 # Kernel-Version
-ansible checkmk_agents -m shell -a "uname -r"
+ansible checkmk_agents -m shell -a "uname -r" --ask-pass --ask-become-pass
 
 # OS-Version
-ansible checkmk_agents -m shell -a "cat /etc/os-release"
+ansible checkmk_agents -m shell -a "cat /etc/os-release" --ask-pass --ask-become-pass
 ```
 
 ### Inventory Cache

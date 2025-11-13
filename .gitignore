@@ -23,8 +23,11 @@ __pycache__/
 inventory/production
 inventory/staging
 vcenter_credentials.sh
+ad_credentials.sh
 .vault_pass.txt
 vault_pass.txt
+.ansible_ssh_pass
+.ansible_become_pass
 
 # IDE
 .vscode/

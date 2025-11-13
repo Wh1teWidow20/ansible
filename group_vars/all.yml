@@ -5,15 +5,27 @@
 checkmk_server: "192.168.1.100"  # Bitte anpassen!
 checkmk_port: 6556
 
-# SSH Konfiguration
-ansible_user: root
-# ansible_ssh_private_key_file: ~/.ssh/id_rsa
-# ansible_port: 22
+# SSH Konfiguration mit AD-User
+# WICHTIG: Ersetzen Sie "ad-username" mit Ihrem tatsächlichen AD-Benutzernamen
+ansible_user: "{{ lookup('env', 'AD_USERNAME') }}"
+# Alternativ: Festen Benutzernamen eintragen:
+# ansible_user: "domain\\username"  # Windows-Stil
+# ansible_user: "username@domain"    # UPN-Stil
+# ansible_user: "username"           # Einfacher Username
+
+# SSH-Port (Standard ist 22)
+ansible_port: 22
+
+# SSH-Passwort wird über --ask-pass oder Umgebungsvariable gesetzt
+# ansible_ssh_pass: wird zur Laufzeit abgefragt oder via ad_credentials.sh gesetzt
 
 # Sudo Konfiguration
 ansible_become: yes
 ansible_become_method: sudo
 ansible_become_user: root
+
+# Sudo-Passwort wird über --ask-become-pass oder Umgebungsvariable gesetzt
+# ansible_become_pass: wird zur Laufzeit abgefragt oder via ad_credentials.sh gesetzt
 
 # Python Interpreter (falls benötigt)
 # ansible_python_interpreter: /usr/bin/python3
