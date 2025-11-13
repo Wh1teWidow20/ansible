@@ -4,10 +4,24 @@ Dieses Ansible-Projekt installiert den CheckMK-Agenten automatisch auf VMs aus e
 
 **🔐 WICHTIG:** Dieses Setup verwendet **Passwort-Authentifizierung mit AD-Benutzern** (keine SSH-Keys). Siehe [PASSWORD_AUTH.md](PASSWORD_AUTH.md) für Details.
 
+**✅ Unterstützte Control Node Systeme:** Debian, Ubuntu, Arch Linux, Manjaro
+**✅ Unterstützte Ziel-Systeme:** RHEL, CentOS, Rocky Linux, AlmaLinux, Ubuntu, Debian, SLES
+
 ## Voraussetzungen
 
-### Auf dem Control Node (Arch Linux)
+### Auf dem Control Node (Debian/Ubuntu/Arch Linux)
 
+**Debian/Ubuntu:**
+```bash
+# Ansible und sshpass installieren
+sudo apt-get update
+sudo apt-get install -y ansible python3 python3-pip sshpass
+
+# Python VMware-Bibliothek installieren
+pip3 install --user pyvmomi requests
+```
+
+**Arch Linux:**
 ```bash
 # Ansible und sshpass installieren
 sudo pacman -S ansible python python-pip sshpass
