@@ -1,6 +1,6 @@
 ---
-# VMware vCenter dynamisches Inventory Plugin (aktualisiert auf vmware.vmware.vms)
-plugin: vmware.vmware.vms
+# VMware vCenter dynamisches Inventory Plugin (community.vmware Collection)
+plugin: community.vmware.vmware_vm_inventory
 
 # vCenter Server Verbindungsdetails
 vcenter_hostname: LTERZTA001.dptrzm.de
