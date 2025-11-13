@@ -104,9 +104,63 @@ echo ""
 echo "=== Installiere Python-Abhängigkeiten ==="
 if ! python3 -c "import pyvmomi" 2>/dev/null; then
     echo "Installiere pyvmomi..."
-    pip3 install --user pyvmomi requests
+
+    case $OS in
+        debian|ubuntu)
+            # Versuche zuerst Debian-Pakete zu verwenden
+            echo "Auf Debian/Ubuntu gibt es mehrere Möglichkeiten:"
+            echo ""
+            echo "Option 1 (EMPFOHLEN): System-Pakete verwenden"
+            echo "   sudo apt-get install -y python3-pyvmomi python3-requests"
+            echo ""
+            echo "Option 2: pip3 mit --break-system-packages verwenden"
+            echo "   pip3 install --user --break-system-packages pyvmomi requests"
+            echo ""
+
+            # Versuche automatisch System-Pakete zu installieren
+            if command -v apt-cache &> /dev/null && apt-cache show python3-pyvmomi &> /dev/null 2>&1; then
+                echo "Versuche automatische Installation mit apt..."
+                if sudo apt-get install -y python3-pyvmomi python3-requests 2>/dev/null; then
+                    echo "✓ pyvmomi über apt installiert"
+                else
+                    echo "⚠ Automatische Installation fehlgeschlagen."
+                    echo "Bitte führen Sie manuell aus:"
+                    echo "   sudo apt-get install -y python3-pyvmomi python3-requests"
+                    echo "ODER:"
+                    echo "   pip3 install --user --break-system-packages pyvmomi requests"
+                    exit 1
+                fi
+            else
+                echo "python3-pyvmomi nicht in apt verfügbar."
+                echo "Verwende pip3 mit --break-system-packages..."
+                if pip3 install --user --break-system-packages pyvmomi requests; then
+                    echo "✓ pyvmomi über pip3 installiert"
+                else
+                    echo "❌ Installation fehlgeschlagen!"
+                    exit 1
+                fi
+            fi
+            ;;
+        arch|manjaro)
+            pip3 install --user pyvmomi requests
+            ;;
+        *)
+            pip3 install --user pyvmomi requests
+            ;;
+    esac
 else
     echo "✓ pyvmomi ist bereits installiert"
+fi
+
+# Requests prüfen
+if ! python3 -c "import requests" 2>/dev/null; then
+    echo "⚠ Python 'requests' Modul fehlt"
+    case $OS in
+        debian|ubuntu)
+            echo "Installiere mit: sudo apt-get install -y python3-requests"
+            echo "ODER: pip3 install --user --break-system-packages requests"
+            ;;
+    esac
 fi
 
 # Prüfen ob Credentials konfiguriert sind
