@@ -6,10 +6,32 @@ set -e
 echo "=== Ansible CheckMK Agent Installation - Setup ==="
 echo ""
 
+# Betriebssystem erkennen
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS=$ID
+else
+    echo "❌ Kann Betriebssystem nicht erkennen!"
+    exit 1
+fi
+
 # Prüfen ob Ansible installiert ist
 if ! command -v ansible &> /dev/null; then
     echo "❌ Ansible ist nicht installiert!"
-    echo "   Installation auf Arch Linux: sudo pacman -S ansible"
+    case $OS in
+        debian|ubuntu)
+            echo "   Installation auf Debian/Ubuntu:"
+            echo "   sudo apt-get update"
+            echo "   sudo apt-get install -y ansible python3 python3-pip sshpass"
+            ;;
+        arch|manjaro)
+            echo "   Installation auf Arch Linux:"
+            echo "   sudo pacman -S ansible python python-pip sshpass"
+            ;;
+        *)
+            echo "   Bitte installieren Sie Ansible für Ihr System"
+            ;;
+    esac
     exit 1
 fi
 echo "✓ Ansible ist installiert: $(ansible --version | head -n1)"
@@ -17,10 +39,38 @@ echo "✓ Ansible ist installiert: $(ansible --version | head -n1)"
 # Prüfen ob Python3 installiert ist
 if ! command -v python3 &> /dev/null; then
     echo "❌ Python3 ist nicht installiert!"
-    echo "   Installation auf Arch Linux: sudo pacman -S python"
+    case $OS in
+        debian|ubuntu)
+            echo "   Installation auf Debian/Ubuntu: sudo apt-get install -y python3 python3-pip"
+            ;;
+        arch|manjaro)
+            echo "   Installation auf Arch Linux: sudo pacman -S python python-pip"
+            ;;
+        *)
+            echo "   Bitte installieren Sie Python3 für Ihr System"
+            ;;
+    esac
     exit 1
 fi
 echo "✓ Python3 ist installiert: $(python3 --version)"
+
+# Prüfen ob pip installiert ist
+if ! command -v pip3 &> /dev/null && ! python3 -m pip --version &> /dev/null; then
+    echo "⚠ pip3 ist nicht installiert!"
+    case $OS in
+        debian|ubuntu)
+            echo "   Installation auf Debian/Ubuntu: sudo apt-get install -y python3-pip"
+            ;;
+        arch|manjaro)
+            echo "   Installation auf Arch Linux: sudo pacman -S python-pip"
+            ;;
+        *)
+            echo "   Bitte installieren Sie pip für Ihr System"
+            ;;
+    esac
+else
+    echo "✓ pip3 ist installiert"
+fi
 
 # Prüfen ob sshpass installiert ist (für Passwort-Authentifizierung)
 echo ""
@@ -28,7 +78,17 @@ echo "=== Prüfe sshpass (für Passwort-Authentifizierung) ==="
 if ! command -v sshpass &> /dev/null; then
     echo "⚠ sshpass ist nicht installiert!"
     echo "   sshpass ermöglicht Passwort-Authentifizierung ohne interaktive Eingabe."
-    echo "   Installation auf Arch Linux: sudo pacman -S sshpass"
+    case $OS in
+        debian|ubuntu)
+            echo "   Installation auf Debian/Ubuntu: sudo apt-get install -y sshpass"
+            ;;
+        arch|manjaro)
+            echo "   Installation auf Arch Linux: sudo pacman -S sshpass"
+            ;;
+        *)
+            echo "   Bitte installieren Sie sshpass für Ihr System"
+            ;;
+    esac
     echo "   Sie können auch ohne sshpass arbeiten, müssen dann aber --ask-pass verwenden."
 else
     echo "✓ sshpass ist installiert"
