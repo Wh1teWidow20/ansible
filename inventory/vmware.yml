@@ -1,13 +1,13 @@
 ---
-# VMware vCenter dynamisches Inventory Plugin
-plugin: community.vmware.vmware_vm_inventory
+# VMware vCenter dynamisches Inventory Plugin (aktualisiert auf vmware.vmware.vms)
+plugin: vmware.vmware.vms
 
 # vCenter Server Verbindungsdetails
-hostname: LTERZTA001.dptrzm.de
-username: "{{ lookup('env', 'VCENTER_USERNAME') }}"
-password: "{{ lookup('env', 'VCENTER_PASSWORD') }}"
-port: 443
-validate_certs: no
+vcenter_hostname: LTERZTA001.dptrzm.de
+vcenter_username: "{{ lookup('env', 'VCENTER_USERNAME') }}"
+vcenter_password: "{{ lookup('env', 'VCENTER_PASSWORD') }}"
+vcenter_port: 443
+vcenter_validate_certs: no
 
 # Nur VMs mit Namen die mit "LTERZTA" beginnen
 filters:
@@ -25,9 +25,8 @@ properties:
 
 # Nur eingeschaltete VMs
 with_tags: no
-with_path: no
 
-# Nur VMs die eingeschaltet sind
+# Hostname-Konfiguration
 hostnames:
   - 'guest.ipAddress'
   - 'name'
@@ -54,5 +53,5 @@ compose:
   vm_guest_os: guest.guestFullName
   vm_power_state: runtime.powerState
 
-# Nur eingeschaltete VMs
+# Strict Mode
 strict: False
